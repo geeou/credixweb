@@ -79,7 +79,14 @@
     }
     el.appendChild(svg);
 
-    const wave = { el, bars, ripples: [], visible: false, active: false };
+    const wave = { el, bars, ripples: [], visible: false, active: false, tx: 0, tLast: -1e9 };
+    // Col dito: le barre seguono il dito mentre lo trascini sull'onda.
+    el.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'mouse') return;
+      const r = el.getBoundingClientRect();
+      wave.tx = ((e.clientX - r.left) / r.width) * (count - 1);
+      wave.tLast = performance.now();
+    }, { passive: true });
     // Un clic o un tocco fa partire un'onda dal punto toccato.
     el.addEventListener('pointerdown', (e) => {
       if (reduceMotion) return;
@@ -98,13 +105,19 @@
       pointer.cy > r.top - 60 && pointer.cy < r.bottom + 60 &&
       pointer.cx > r.left - 40 && pointer.cx < r.right + 40;
     wave.ripples = wave.ripples.filter((rp) => now - rp.t < 1400);
-    if (!near && !wave.ripples.length && !wave.active) return;
+    const touching = now - wave.tLast < 900;
+    // Telefono: senza dito, una "testina" attraversa l'onda mentre scorri.
+    const auto = !finePointer && !touching;
+    if (!near && !touching && !auto && !wave.ripples.length && !wave.active) return;
 
-    const px = ((pointer.cx - r.left) / r.width) * (n - 1);
+    let px = ((pointer.cx - r.left) / r.width) * (n - 1);
+    if (touching) px = wave.tx;
+    if (auto) px = clamp(1 - (r.top + r.height / 2) / window.innerHeight, 0, 1) * 1.2 * (n - 1) - 0.1 * (n - 1);
+    const focus = near || touching || auto;
     let moving = false;
     for (let i = 0; i < n; i++) {
       let target = 1;
-      if (near) target += 1.1 * Math.exp(-((i - px) ** 2) / 40);
+      if (focus) target += 1.1 * Math.exp(-((i - px) ** 2) / 40);
       for (const rp of wave.ripples) {
         const age = now - rp.t;
         const front = age * 0.07;
@@ -146,12 +159,17 @@
   const ring = document.querySelector('.symbol__ring');
   if (ring) ring.addEventListener('transitionend', () => hero.classList.add('is-drawn'), { once: true });
 
-  function updateSymbol() {
+  function updateSymbol(now) {
     if (!symbol || !symbolTilt) return;
     const y = Math.min(scrollY, window.innerHeight * 1.2);
     let tx = 0;
     let ty = 0;
-    if (finePointer && y < window.innerHeight) {
+    if (!finePointer) {
+      // Telefono: segue l'inclinazione del telefono, oppure oscilla piano da solo.
+      const gyro = now - orientation.last < 1500;
+      tx = gyro ? orientation.x : Math.sin(now / 1900) * 0.45;
+      ty = gyro ? orientation.y : Math.cos(now / 2300) * 0.35 - y / window.innerHeight;
+    } else if (y < window.innerHeight) {
       const r = symbol.getBoundingClientRect();
       tx = clamp((pointer.cx - (r.left + r.width / 2)) / r.width, -1, 1);
       ty = clamp((pointer.cy - (r.top + r.height / 2)) / r.height, -1, 1);
@@ -171,7 +189,8 @@
 
   function updateLight(now) {
     const max = Math.max(1, root.scrollHeight - window.innerHeight);
-    const source = finePointer && now - pointer.last < 4000 ? pointer.x : scrollY / max;
+    let source = finePointer && now - pointer.last < 4000 ? pointer.x : scrollY / max;
+    if (!finePointer && now - orientation.last < 1500) source = clamp(source + orientation.x * 0.35, 0, 1);
     const breathe = Math.sin(now / 2600) * 0.5 + 0.5;
     const target = 8 + 84 * (0.7 * source + 0.3 * breathe);
     const next = lerp(light, target, 0.06);
@@ -254,6 +273,62 @@
     });
   }
 
+  /* ---------- Credits: dal margine al centro, con lo scroll ---------- */
+
+  const scene = document.querySelector('.idea');
+  const sceneGrid = document.querySelector('.idea__grid');
+  const credits = document.querySelector('.credits');
+  let sceneT = 0;
+
+  const smooth = (x) => x * x * (3 - 2 * x);
+  const sceneCopy = document.querySelector('.idea__copy');
+
+  function updateCredits() {
+    if (!scene || !sceneGrid || !credits) return;
+    const top = parseFloat(getComputedStyle(credits).top) || 0;
+    const g = sceneGrid.getBoundingClientRect();
+    // Sul telefono il testo sta sopra al riquadro: il riquadro si ferma dopo di lui.
+    let start = 0;
+    if (sceneCopy && getComputedStyle(sceneCopy).position === 'static') {
+      start = sceneCopy.getBoundingClientRect().bottom - g.top + (parseFloat(getComputedStyle(sceneGrid).rowGap) || 0);
+    }
+    const travel = Math.max(1, g.height - parseFloat(getComputedStyle(sceneGrid).paddingTop || 0) - start - credits.offsetHeight);
+    // p: 0 quando il riquadro si ferma, 1 quando riparte.
+    const p = clamp((top - g.top - start) / travel, 0, 1);
+    const target = smooth(clamp((p - 0.12) / 0.6, 0, 1));
+    sceneT = reduceMotion ? 1 : lerp(sceneT, target, 0.14);
+    scene.style.setProperty('--t', sceneT.toFixed(4));
+    credits.style.setProperty('--p', p.toFixed(4));
+    credits.classList.toggle('is-after', sceneT > 0.5);
+  }
+
+  /* ---------- Telefono: le stesse interazioni, guidate da scroll e sensori ---------- */
+
+  const orientation = { x: 0, y: 0, last: -1e9 };
+  if (!finePointer) {
+    window.addEventListener('deviceorientation', (e) => {
+      if (e.gamma == null) return;
+      orientation.x = clamp(e.gamma / 30, -1, 1);
+      orientation.y = clamp((e.beta - 45) / 30, -1, 1);
+      orientation.last = performance.now();
+    }, { passive: true });
+  }
+
+  const spots = [...document.querySelectorAll('[data-spot]')];
+  function updateSpotsTouch() {
+    const vh = window.innerHeight;
+    spots.forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > vh) return;
+      // La luce sta al centro dello schermo: scorrendo attraversa il riquadro.
+      const y = vh * 0.5 - r.top;
+      const inside = clamp(1 - Math.abs(y - r.height / 2) / (r.height / 2 + vh * 0.25), 0, 1);
+      el.style.setProperty('--px', `${r.width / 2}px`);
+      el.style.setProperty('--py', `${y.toFixed(0)}px`);
+      el.style.setProperty('--spot-o', inside.toFixed(3));
+    });
+  }
+
   /* ---------- Loop ---------- */
 
   let prev = performance.now();
@@ -267,9 +342,11 @@
     scrollVel = lerp(scrollVel, Math.abs(dy), 0.12);
 
     updateLight(now);
-    updateSymbol();
+    updateSymbol(now);
     updateMarquees(dt);
     updateWords();
+    updateCredits();
+    if (!finePointer) updateSpotsTouch();
     waves.forEach((w) => { if (w.visible) updateWave(w, now); });
     requestAnimationFrame(frame);
   }
@@ -277,6 +354,8 @@
   if (reduceMotion) {
     root.style.setProperty('--lx', '40');
     wordBlocks.forEach((wb) => wb.words.forEach((w) => w.classList.add('is-lit')));
+    if (scene) scene.style.setProperty('--t', '1');
+    if (credits) credits.classList.add('is-after');
   } else {
     requestAnimationFrame(frame);
   }
@@ -319,32 +398,4 @@
     revealEls.forEach((el) => el.classList.add('is-in'));
   }
 
-  /* ---------- Credits: dal margine al centro ---------- */
-
-  const credits = document.querySelector('.credits');
-  if (credits) {
-    const buttons = [...credits.querySelectorAll('.switch__btn')];
-    let touched = false;
-
-    const setState = (state) => {
-      credits.dataset.state = state;
-      buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.set === state)));
-    };
-
-    buttons.forEach((b) => b.addEventListener('click', () => {
-      touched = true;
-      setState(b.dataset.set);
-    }));
-
-    // La prima volta che il riquadro entra in vista, il nome sale al centro da solo.
-    if ('IntersectionObserver' in window) {
-      const once = new IntersectionObserver(([entry]) => {
-        if (entry.isIntersecting) {
-          once.disconnect();
-          setTimeout(() => { if (!touched) setState('after'); }, reduceMotion ? 300 : 1400);
-        }
-      }, { threshold: 0.6 });
-      once.observe(credits);
-    }
-  }
 })();

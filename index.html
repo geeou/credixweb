@@ -105,9 +105,17 @@
           <p class="tag" data-reveal><span aria-hidden="true">©</span> From the credits to the front</p>
         </div>
 
-        <figure class="credits" data-state="before" data-reveal>
+        <figure class="credits" aria-label="I credits di un brano: il nome del producer passa dal margine al centro">
+          <span class="mark mark--tl" aria-hidden="true"></span>
+          <span class="mark mark--tr" aria-hidden="true"></span>
+          <span class="mark mark--bl" aria-hidden="true"></span>
+          <span class="mark mark--br" aria-hidden="true"></span>
+          <div class="credits__labels" aria-hidden="true">
+            <span class="credits__label credits__label--before">Prima — il margine</span>
+            <span class="credits__label credits__label--after">Dopo — il centro</span>
+          </div>
           <div class="credits__stage">
-            <ul class="credits__lines" aria-label="Credits di un brano">
+            <ul class="credits__lines">
               <li>(P) 2026 Etichetta Srl</li>
               <li>© 2026 Etichetta Srl</li>
               <li class="credits__prod">Prod. by <b>Nome Producer</b></li>
@@ -118,14 +126,11 @@
               <span class="display chrome credits__name">Nome Producer</span>
             </p>
           </div>
-          <figcaption class="credits__controls">
-            <span class="credits__caption">Dove sta il nome del producer?</span>
-            <div class="switch" role="group" aria-label="Mostra i credits">
-              <button type="button" class="switch__btn" data-set="before" aria-pressed="true">Nel margine</button>
-              <button type="button" class="switch__btn" data-set="after" aria-pressed="false">Al centro</button>
-            </div>
-          </figcaption>
+          <div class="credits__timeline" aria-hidden="true">
+            <span class="credits__playhead"></span>
+          </div>
         </figure>
+        <div class="idea__spacer" aria-hidden="true"></div>
       </div>
     </section>
 
