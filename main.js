@@ -243,7 +243,8 @@
 
   const wordBlocks = [...document.querySelectorAll('[data-words]')].map((block) => {
     const words = [];
-    block.querySelectorAll('p').forEach((p) => {
+    const paras = block.matches('p') ? [block] : [...block.querySelectorAll('p:not(.tag)')];
+    paras.forEach((p) => {
       const parts = p.textContent.split(/(\s+)/);
       p.textContent = '';
       parts.forEach((part) => {
