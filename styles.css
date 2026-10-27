@@ -443,16 +443,16 @@ p { color: var(--silver); }
 }
 
 /* Timeline in fondo, come in una DAW: la testina avanza con lo scroll. */
-.credits__timeline {
+.timeline {
   position: relative;
   height: 28px;
-  margin: 0 18px 16px;
   border-bottom: 1px solid var(--steel);
   background: repeating-linear-gradient(90deg, var(--steel) 0 1px, transparent 1px 10px);
   -webkit-mask: linear-gradient(to top, #000 45%, transparent 45%);
   mask: linear-gradient(to top, #000 45%, transparent 45%);
 }
-.credits__playhead {
+.credits__timeline { margin: 0 18px 16px; }
+.timeline__playhead {
   position: absolute;
   left: 0;
   bottom: 0;
@@ -499,6 +499,30 @@ p { color: var(--silver); }
   color: var(--credit);
 }
 
+/* Pilastri: scena allo scroll, i quattro temi entrano uno alla volta. */
+.js .pillars__scene { height: calc(100svh + 260vh); }
+.js .pillars__sticky {
+  position: sticky;
+  top: 76px;
+  height: calc(100svh - 76px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.pillars__timeline { margin-top: clamp(20px, 2.4vw, 32px); }
+.js .pillars__grid { overflow: clip; background: none; gap: 0; }
+.js .pillar { border-left: 1px solid var(--graphite); }
+.js .pillar:first-child { border-left: 0; }
+.js .pillar {
+  --q: 0;
+  opacity: var(--q);
+  transform: translateY(calc((1 - var(--q)) * 38vh)) scale(calc(.86 + var(--q) * .14));
+  transform-origin: 50% 100%;
+}
+.js .pillar__num { transition: color .5s ease; }
+.js .pillar.is-active .pillar__num { color: var(--credit); }
+.js .pillar.is-active { border-color: var(--steel); }
+
 /* Pilastri */
 
 .pillars__head {
@@ -522,8 +546,8 @@ p { color: var(--silver); }
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: clamp(420px, 40vw, 600px);
-  padding: clamp(22px, 2vw, 30px);
+  min-height: clamp(320px, calc(100svh - 76px - 300px), 560px);
+  padding: clamp(18px, 2vw, 30px);
   background: var(--master);
   transition: background-color .5s ease;
 }
@@ -634,6 +658,9 @@ p { color: var(--silver); }
 
 
 @media (prefers-reduced-motion: reduce) {
+  .js .pillars__scene { height: auto; }
+  .js .pillars__sticky { position: static; height: auto; }
+  .js .pillar { opacity: 1; transform: none; }
   html { scroll-behavior: auto; }
   .js [data-reveal] { transform: none; transition: opacity .4s ease; }
   .js .symbol__ring { stroke-dashoffset: 0; transition: none; }
@@ -734,10 +761,6 @@ p { color: var(--silver); }
 
 @media (max-width: 1080px) {
   .nav__links { display: none; }
-  .pillars__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pillar { min-height: 360px; }
-  .pillar:nth-child(2) { background: var(--sheen), linear-gradient(160deg, #262626 0%, #121212 60%); }
-  .pillar:nth-child(3) { background: var(--master); }
 }
 
 @media (max-width: 860px) {
@@ -762,6 +785,30 @@ p { color: var(--silver); }
   }
   .verbs { grid-template-columns: 1fr; }
   .manifesto__cols { grid-template-columns: 1fr; }
+
+  /* Telefono e tablet: i pilastri si impilano come un mazzo di carte. */
+  .js .pillars__grid {
+    position: relative;
+    display: block;
+    height: min(440px, calc(100svh - 76px - 260px));
+    min-height: 300px;
+    border: 0;
+    background: none;
+  }
+  .js .pillar {
+    position: absolute;
+    inset: 0;
+    min-height: 0;
+    border: 1px solid var(--graphite);
+    opacity: 1;
+    transform: translateY(calc((1 - var(--q)) * 115%)) scale(calc(1 - var(--c, 0) * .08));
+    transform-origin: 50% 0;
+    justify-content: center;
+  }
+  .js .pillar__title { margin-top: 20px; }
+  .js .pillar > * { opacity: calc(1 - var(--c, 0) * .75); }
+  .js .pillar:nth-child(odd) { background: var(--sheen), linear-gradient(160deg, #262626 0%, #121212 60%); }
+  .js .pillar:nth-child(even) { background: var(--sheen), linear-gradient(160deg, #1a1a1a 0%, #0b0b0b 60%); }
 }
 
 @media (max-width: 560px) {
@@ -790,6 +837,12 @@ p { color: var(--silver); }
 
 /* Telefono: impaginazione centrata */
 @media (max-width: 640px) {
+  /* Il simbolo può uscire dal hero e passare dietro alla sezione successiva. */
+  .hero { overflow: visible; }
+  .hero__foot,
+  .section,
+  .slogans,
+  .footer { position: relative; z-index: 1; }
   .nav__inner { justify-content: center; }
 
   .hero__grid,
@@ -834,4 +887,10 @@ p { color: var(--silver); }
   .pillar { align-items: center; }
 
   .footer__row { flex-direction: column; align-items: center; gap: 18px; }
+}
+
+@media (max-width: 860px) and (prefers-reduced-motion: reduce) {
+  .js .pillars__grid { display: grid; height: auto; gap: 12px; }
+  .js .pillar { position: relative; transform: none; }
+  .js .pillar > * { opacity: 1; }
 }

@@ -159,16 +159,33 @@
   const ring = document.querySelector('.symbol__ring');
   if (ring) ring.addEventListener('transitionend', () => hero.classList.add('is-drawn'), { once: true });
 
+  // Telefono: il simbolo di sfondo scende con la pagina finché si ferma
+  // dietro al titolo della sezione Idea.
+  const narrow = window.matchMedia('(max-width: 640px)');
+  const symbolWrap = document.querySelector('.hero__symbol');
+  const ideaTitle = document.querySelector('.idea__title');
+  let symbolTravel = 0;
+  function measureSymbol() {
+    if (!narrow.matches || !symbolWrap || !ideaTitle) { symbolTravel = 0; return; }
+    const s = symbolWrap.getBoundingClientRect();
+    const t = ideaTitle.getBoundingClientRect();
+    symbolTravel = Math.max(0, (t.top + t.height / 2) - (s.top + s.height / 2));
+  }
+  measureSymbol();
+  window.addEventListener('resize', measureSymbol);
+  window.addEventListener('load', measureSymbol);
+
   function updateSymbol(now) {
     if (!symbol || !symbolTilt) return;
-    const y = Math.min(scrollY, window.innerHeight * 1.2);
+    const y = symbolTravel ? scrollY : Math.min(scrollY, window.innerHeight * 1.2);
+    const shift = symbolTravel ? Math.min(y * 0.62, symbolTravel) : y * 0.12;
     let tx = 0;
     let ty = 0;
     if (!finePointer) {
       // Telefono: segue l'inclinazione del telefono, oppure oscilla piano da solo.
       const gyro = now - orientation.last < 1500;
       tx = gyro ? orientation.x : Math.sin(now / 1900) * 0.45;
-      ty = gyro ? orientation.y : Math.cos(now / 2300) * 0.35 - y / window.innerHeight;
+      ty = gyro ? orientation.y : Math.cos(now / 2300) * 0.35 - Math.min(y / window.innerHeight, 1);
     } else if (y < window.innerHeight) {
       const r = symbol.getBoundingClientRect();
       tx = clamp((pointer.cx - (r.left + r.width / 2)) / r.width, -1, 1);
@@ -176,7 +193,7 @@
     }
     tilt.x = lerp(tilt.x, tx, 0.08);
     tilt.y = lerp(tilt.y, ty, 0.08);
-    symbol.style.transform = `translateY(${(y * 0.12).toFixed(1)}px) rotate(${(y * -0.03).toFixed(2)}deg)`;
+    symbol.style.transform = `translateY(${shift.toFixed(1)}px) rotate(${(Math.min(y, 1200) * -0.03).toFixed(2)}deg)`;
     symbolTilt.style.transform = `rotateY(${(tilt.x * 18).toFixed(2)}deg) rotateX(${(-tilt.y * 18).toFixed(2)}deg)`;
   }
 
@@ -303,6 +320,35 @@
     credits.classList.toggle('is-after', sceneT > 0.5);
   }
 
+  /* ---------- Pilastri: entrano uno alla volta con lo scroll ---------- */
+
+  const pScene = document.querySelector('.pillars__scene');
+  const pSticky = document.querySelector('.pillars__sticky');
+  const pillars = [...document.querySelectorAll('.pillar')];
+  const pTimeline = document.querySelector('.pillars__timeline');
+  const pillarQ = pillars.map(() => 0);
+
+  function updatePillars() {
+    if (!pScene || !pSticky || !pillars.length) return;
+    const top = parseFloat(getComputedStyle(pSticky).top) || 0;
+    const r = pScene.getBoundingClientRect();
+    const p = clamp((top - r.top) / Math.max(1, r.height - pSticky.offsetHeight), 0, 1);
+    const n = pillars.length;
+    let active = -1;
+    pillars.forEach((el, i) => {
+      // Ogni pilastro ha la sua fetta di scroll, con un po' di sovrapposizione.
+      const target = smooth(clamp(p * (n + 1.2) - i * 1.05 - 0.15, 0, 1));
+      pillarQ[i] = lerp(pillarQ[i], target, 0.16);
+      if (pillarQ[i] > 0.6) active = i;
+    });
+    pillars.forEach((el, i) => {
+      el.style.setProperty('--q', pillarQ[i].toFixed(4));
+      el.style.setProperty('--c', (i + 1 < n ? pillarQ[i + 1] : 0).toFixed(4));
+      el.classList.toggle('is-active', i === active);
+    });
+    if (pTimeline) pTimeline.style.setProperty('--p', p.toFixed(4));
+  }
+
   /* ---------- Telefono: le stesse interazioni, guidate da scroll e sensori ---------- */
 
   const orientation = { x: 0, y: 0, last: -1e9 };
@@ -347,6 +393,7 @@
     updateMarquees(dt);
     updateWords();
     updateCredits();
+    updatePillars();
     if (!finePointer) updateSpotsTouch();
     waves.forEach((w) => { if (w.visible) updateWave(w, now); });
     requestAnimationFrame(frame);
@@ -356,6 +403,7 @@
     root.style.setProperty('--lx', '40');
     wordBlocks.forEach((wb) => wb.words.forEach((w) => w.classList.add('is-lit')));
     if (scene) scene.style.setProperty('--t', '1');
+    pillars.forEach((el) => el.style.setProperty('--q', '1'));
     if (credits) credits.classList.add('is-after');
   } else {
     requestAnimationFrame(frame);
