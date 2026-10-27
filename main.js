@@ -207,7 +207,8 @@
   function updateLight(now) {
     const max = Math.max(1, root.scrollHeight - window.innerHeight);
     let source = finePointer && now - pointer.last < 4000 ? pointer.x : scrollY / max;
-    if (!finePointer && now - orientation.last < 1500) source = clamp(source + orientation.x * 0.35, 0, 1);
+    // Telefono: il giroscopio sposta il riflesso, in aggiunta allo scroll.
+    if (!finePointer && now - orientation.last < 1500) source = clamp(source + orientation.x * 0.45 + orientation.y * 0.25, 0, 1);
     const breathe = Math.sin(now / 2600) * 0.5 + 0.5;
     const target = 8 + 84 * (0.7 * source + 0.3 * breathe);
     const next = lerp(light, target, 0.06);
@@ -351,12 +352,17 @@
 
   /* ---------- Telefono: le stesse interazioni, guidate da scroll e sensori ---------- */
 
-  const orientation = { x: 0, y: 0, last: -1e9 };
+  const orientation = { x: 0, y: 0, bx: 0, by: 0, last: -1e9 };
   if (!finePointer) {
     window.addEventListener('deviceorientation', (e) => {
       if (e.gamma == null) return;
-      orientation.x = clamp(e.gamma / 30, -1, 1);
-      orientation.y = clamp((e.beta - 45) / 30, -1, 1);
+      // Riferimento che si adatta piano a come tieni il telefono:
+      // conta solo quanto lo inclini rispetto alla tua posizione.
+      if (orientation.last < 0) { orientation.bx = e.gamma; orientation.by = e.beta; }
+      orientation.bx = lerp(orientation.bx, e.gamma, 0.004);
+      orientation.by = lerp(orientation.by, e.beta, 0.004);
+      orientation.x = clamp((e.gamma - orientation.bx) / 22, -1, 1);
+      orientation.y = clamp((e.beta - orientation.by) / 22, -1, 1);
       orientation.last = performance.now();
     }, { passive: true });
   }
